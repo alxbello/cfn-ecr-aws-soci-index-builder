@@ -52,6 +52,63 @@ parameters:
   SociRepositoryImageTagFilters: "*:*"
 ```
 
+## Using Finch Instead of Docker Desktop
+
+[Finch](https://runfinch.com/) is an open source tool for local container development that can replace Docker Desktop. If you prefer not to install Docker Desktop, you can use Finch with `taskcat upload` by following these steps.
+
+### Prerequisites
+
+1. Install Finch ([installation guide](https://runfinch.com/docs/managing-finch/macos/installation/)):
+   ```bash
+   brew install --cask finch
+   ```
+
+2. Initialize and start the VM:
+   ```bash
+   finch vm init
+   finch vm start
+   ```
+
+3. **Apple Silicon (M1/M2/M3):** Enable Rosetta for amd64 compatibility. Edit `~/.finch/finch.yaml`:
+   ```yaml
+   rosetta: true
+   vmType: vz
+   ```
+   Then recreate the VM:
+   ```bash
+   finch vm stop && finch vm remove && finch vm init
+   ```
+
+### Expose the Docker-compatible socket
+
+`taskcat` uses the Docker Python SDK, which connects via socket rather than the CLI. Create a symlink so the SDK finds Finch's socket:
+
+```bash
+sudo ln -sf /Applications/Finch/lima/data/finch/sock/finch.sock /var/run/docker.sock
+```
+
+### Pre-build the Lambda packaging image
+
+`taskcat` expects to pull a pre-built image rather than building it from scratch. Run `taskcat upload` once — it will fail with an error like:
+
+```
+[ERROR] : APIError 500 Server Error ... "failed to resolve reference "docker.io/library/taskcat-build-<hash>:latest"
+```
+
+Copy the image name from the error, then build it manually:
+
+```bash
+finch build --platform linux/amd64 \
+  -t taskcat-build-<hash> \
+  functions/source/soci-index-generator-lambda/
+```
+
+### Run taskcat upload
+
+```bash
+taskcat upload
+```
+
 ## How It Works
 
 1. When an image is pushed to ECR, an EventBridge rule triggers the ECR Image Action Event Filtering Lambda
