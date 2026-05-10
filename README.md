@@ -54,7 +54,7 @@ parameters:
 
 ## Using Finch Instead of Docker Desktop
 
-[Finch](https://runfinch.com/) is an open source tool for local container development that can replace Docker Desktop. If you prefer not to install Docker Desktop, you can use Finch with `taskcat upload` by following these steps.
+[Finch](https://runfinch.com/) is an open source tool for local container development that can replace Docker Desktop. If you prefer not to install Docker Desktop, you can use Finch with this project by following these steps.
 
 ### Prerequisites
 
@@ -79,35 +79,26 @@ parameters:
    finch vm stop && finch vm remove && finch vm init
    ```
 
-### Expose the Docker-compatible socket
+### Build and upload
 
-`taskcat` uses the Docker Python SDK, which connects via socket rather than the CLI. Create a symlink so the SDK finds Finch's socket:
-
-```bash
-sudo ln -sf /Applications/Finch/lima/data/finch/sock/finch.sock /var/run/docker.sock
-```
-
-### Pre-build the Lambda packaging image
-
-`taskcat` expects to pull a pre-built image rather than building it from scratch. Run `taskcat upload` once — it will fail with an error like:
-
-```
-[ERROR] : APIError 500 Server Error ... "failed to resolve reference "docker.io/library/taskcat-build-<hash>:latest"
-```
-
-Copy the image name from the error, then build it manually:
+The included `build-lambdas.sh` script packages the Lambda functions using any OCI-compatible runtime (Finch or Docker), bypassing `taskcat`'s Docker SDK dependency:
 
 ```bash
-finch build --platform linux/amd64 \
-  -t taskcat-build-<hash> \
-  functions/source/soci-index-generator-lambda/
-```
-
-### Run taskcat upload
-
-```bash
+./build-lambdas.sh
 taskcat upload
 ```
+
+The script auto-detects Finch or Docker. To force a specific runtime:
+
+```bash
+CONTAINER_RUNTIME=/path/to/finch ./build-lambdas.sh
+```
+
+> **Note:** If you want `taskcat upload` to work *without* pre-building (i.e., let taskcat build via Docker SDK directly), you'll also need to symlink Finch's socket:
+> ```bash
+> sudo ln -sf /Applications/Finch/lima/data/finch/sock/finch.sock /var/run/docker.sock
+> ```
+> However, due to differences in how Finch's containerd storage exposes images to the Docker API, the pre-build script is the more reliable approach.
 
 ## How It Works
 
